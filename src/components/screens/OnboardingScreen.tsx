@@ -17,16 +17,75 @@ type VerificationState = 'idle' | 'verifying' | 'completed' | 'declined' | 'erro
 
 const DIDIT_EMBED_CONTAINER_ID = 'didit-embed-container';
 
+// On mobile, opening the system camera for the selfie/ID-photo step commonly
+// suspends (and on return, reloads) the browser tab — a plain full-page
+// reload that wipes all in-memory React state. Without this, the user comes
+// back from the camera to a blank onboarding form. Persisting the in-progress
+// session here lets the app resume the SAME Didit session (not a new one)
+// instead of losing the customer's progress.
+const STORAGE_KEY = 'hubbank_onboarding_progress';
+
+interface StoredProgress {
+  firstName: string;
+  lastName: string;
+  email: string;
+  sessionId: string;
+  sessionUrl: string;
+  verification: VerificationState;
+}
+
+function loadProgress(): StoredProgress | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveProgress(progress: StoredProgress) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  } catch {
+    // sessionStorage unavailable (private mode, etc.) — resume just won't work
+  }
+}
+
+function clearProgress() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogin }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [verification, setVerification] = useState<VerificationState>('idle');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionUrl, setSessionUrl] = useState<string | null>(null);
   const [applicant, setApplicant] = useState<OnboardedApplicant | null>(null);
   const startedRef = useRef(false);
 
   const canVerify = firstName.trim() && lastName.trim() && email.trim();
+
+  // Restore an in-progress verification after a tab reload (see STORAGE_KEY
+  // comment above). Runs once on mount, before the effect below picks it up.
+  useEffect(() => {
+    const saved = loadProgress();
+    if (!saved) return;
+    setFirstName(saved.firstName);
+    setLastName(saved.lastName);
+    setEmail(saved.email);
+    setSessionId(saved.sessionId);
+    setSessionUrl(saved.sessionUrl);
+    setVerification(saved.verification);
+    if (saved.verification === 'completed') {
+      getOnboardedApplicant(saved.email).then(setApplicant);
+    }
+  }, []);
 
   // Rendering the container div is what kicks off the actual verification —
   // the SDK needs that element already mounted before it can embed into it.
@@ -36,20 +95,46 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
 
     (async () => {
       const normalizedEmail = email.trim().toLowerCase();
+      // Reuse a session restored from sessionStorage instead of creating a
+      // new one, so resuming after a tab reload continues the same flow.
+      let activeSessionId = sessionId;
+      let activeSessionUrl = sessionUrl;
       try {
         // A prospective applicant has no customer_id yet — the email is the
         // vendor_data Didit (and our own backend) will link the session to.
         // Name goes as metadata: Didit echoes it back on the webhook, which is
         // the only place the backend can read it to provision the account.
-        const session = await createDiditSession(normalizedEmail, {
-          first_name: firstName.trim(),
-          last_name: lastName.trim()
+        if (!activeSessionId || !activeSessionUrl) {
+          const session = await createDiditSession(normalizedEmail, {
+            first_name: firstName.trim(),
+            last_name: lastName.trim()
+          });
+          activeSessionId = session.session_id;
+          activeSessionUrl = session.url;
+          setSessionId(activeSessionId);
+          setSessionUrl(activeSessionUrl);
+        }
+
+        saveProgress({
+          firstName, lastName, email: normalizedEmail,
+          sessionId: activeSessionId, sessionUrl: activeSessionUrl,
+          verification: 'verifying'
         });
-        setSessionId(session.session_id);
-        const outcome = await startDiditVerification(session.url, DIDIT_EMBED_CONTAINER_ID);
+
+        const outcome = await startDiditVerification(activeSessionUrl, DIDIT_EMBED_CONTAINER_ID);
 
         if (outcome !== 'completed') {
-          setVerification(outcome === 'cancelled' ? 'idle' : 'error');
+          if (outcome === 'cancelled') {
+            clearProgress();
+            setVerification('idle');
+          } else {
+            saveProgress({
+              firstName, lastName, email: normalizedEmail,
+              sessionId: activeSessionId, sessionUrl: activeSessionUrl,
+              verification: 'error'
+            });
+            setVerification('error');
+          }
           return;
         }
 
@@ -59,27 +144,54 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
         // for it; if it hasn't landed yet (expected on localhost, since Didit
         // can't deliver webhooks there), fall back to a pending state.
         for (let attempt = 0; attempt < 3; attempt++) {
-          const status = await getDiditSessionStatus(session.session_id).catch(() => null);
+          const status = await getDiditSessionStatus(activeSessionId).catch(() => null);
           if (status?.status === 'Approved') {
-            setApplicant(await getOnboardedApplicant(normalizedEmail));
+            const approvedApplicant = await getOnboardedApplicant(normalizedEmail);
+            setApplicant(approvedApplicant);
+            saveProgress({
+              firstName, lastName, email: normalizedEmail,
+              sessionId: activeSessionId, sessionUrl: activeSessionUrl,
+              verification: 'completed'
+            });
             setVerification('completed');
             return;
           }
           if (status?.status === 'Declined') {
+            saveProgress({
+              firstName, lastName, email: normalizedEmail,
+              sessionId: activeSessionId, sessionUrl: activeSessionUrl,
+              verification: 'declined'
+            });
             setVerification('declined');
             return;
           }
           await new Promise(r => setTimeout(r, 1000));
         }
+        // Webhook hasn't landed yet (expected on localhost, since Didit can't
+        // deliver webhooks there) — show a pending "completed" state anyway;
+        // getOnboardedApplicant simply returns null until the webhook arrives.
+        saveProgress({
+          firstName, lastName, email: normalizedEmail,
+          sessionId: activeSessionId, sessionUrl: activeSessionUrl,
+          verification: 'completed'
+        });
         setVerification('completed');
       } catch {
+        saveProgress({
+          firstName, lastName, email: normalizedEmail,
+          sessionId: activeSessionId || '', sessionUrl: activeSessionUrl || '',
+          verification: 'error'
+        });
         setVerification('error');
       }
     })();
-  }, [verification, email, firstName, lastName]);
+  }, [verification, email, firstName, lastName, sessionId, sessionUrl]);
 
   const handleVerify = () => {
     if (!canVerify) return;
+    clearProgress();
+    setSessionId(null);
+    setSessionUrl(null);
     startedRef.current = false;
     setVerification('verifying');
   };
@@ -230,7 +342,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
               <span>No se pudo iniciar la verificación. Intenta de nuevo.</span>
             </div>
             <button
-              onClick={() => setVerification('idle')}
+              onClick={() => {
+                clearProgress();
+                setSessionId(null);
+                setSessionUrl(null);
+                setVerification('idle');
+              }}
               className="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:border-[#425E5A] text-slate-700 font-medium text-xs"
             >
               Reintentar
@@ -243,7 +360,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
         )}
 
         <button
-          onClick={onBackToLogin}
+          onClick={() => { clearProgress(); onBackToLogin(); }}
           className="mt-6 text-[11px] text-slate-500 hover:text-[#425E5A]"
         >
           ¿Ya tienes cuenta? Inicia sesión

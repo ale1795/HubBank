@@ -23,9 +23,26 @@ const BankingAppInner: React.FC = () => {
     setHighlightedTxId,
     isConsultingTx
   } = useBanking();
-  const [activeTab, setActiveTab] = useState<ScreenTab>('home');
+  // Some mobile browsers suspend (and on return, fully reload) the tab when
+  // the customer leaves it to use the system camera — e.g. the Didit selfie
+  // step. A plain reload wipes all in-memory state, so without this the app
+  // always came back on 'home'/login regardless of what screen the customer
+  // was on. Persisting the active tab lets a reload land back where they left
+  // off instead of restarting the app.
+  const TAB_STORAGE_KEY = 'hubbank_active_tab';
+  const [activeTab, setActiveTab] = useState<ScreenTab>(() => {
+    try {
+      return (sessionStorage.getItem(TAB_STORAGE_KEY) as ScreenTab | null) || 'home';
+    } catch {
+      return 'home';
+    }
+  });
   const [isMainScrolling, setIsMainScrolling] = useState<boolean>(false);
   const scrollIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistTab = (tab: ScreenTab) => {
+    try { sessionStorage.setItem(TAB_STORAGE_KEY, tab); } catch { /* ignore */ }
+  };
 
   // Every in-app screen change pushes a history entry, so the mobile/browser
   // back gesture moves between HubBank's own screens instead of leaving the
@@ -36,15 +53,19 @@ const BankingAppInner: React.FC = () => {
     if (tab === activeTab) return;
     window.history.pushState({ tab }, '', '');
     setActiveTab(tab);
+    persistTab(tab);
   };
 
   useEffect(() => {
-    window.history.replaceState({ tab: 'home' }, '', '');
+    window.history.replaceState({ tab: activeTab }, '', '');
     const onPopState = (e: PopStateEvent) => {
-      setActiveTab((e.state?.tab as ScreenTab) || 'home');
+      const tab = (e.state?.tab as ScreenTab) || 'home';
+      setActiveTab(tab);
+      persistTab(tab);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The live agent's tool calls (verify_transaction, report_fraud, block_card)
