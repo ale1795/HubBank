@@ -18,7 +18,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCrea
   };
 
   return (
-    <div className="relative min-h-[780px] bg-white text-slate-800 flex flex-col justify-between overflow-hidden rounded-3xl shadow-2xl max-w-md mx-auto">
+    <div className="relative w-full min-h-[780px] bg-white text-slate-800 flex flex-col justify-between overflow-hidden rounded-3xl shadow-2xl max-w-md mx-auto">
       {/* Top Status + Logo — same teal band as the in-app header */}
       <div className="bg-[#425E5A] pt-4 pb-6 px-6">
         <div className="text-xs text-white/80 font-semibold">

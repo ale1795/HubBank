@@ -85,7 +85,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
   };
 
   return (
-    <div className="relative min-h-[780px] bg-white text-slate-800 flex flex-col overflow-hidden rounded-3xl shadow-2xl max-w-md mx-auto">
+    <div className="relative w-full min-h-[780px] bg-white text-slate-800 flex flex-col overflow-hidden rounded-3xl shadow-2xl max-w-md mx-auto">
       <div className="bg-[#425E5A] pt-4 pb-6 px-6">
         <div className="text-xs text-white/80 font-semibold">
           <span>9:41</span>
@@ -170,7 +170,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
             )}
             {/* Didit renders its hosted flow inline into this element (embedded
                 mode) instead of a floating modal — stays part of the page. */}
-            <div id={DIDIT_EMBED_CONTAINER_ID} className="w-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-200" />
+            <div id={DIDIT_EMBED_CONTAINER_ID} className="w-full h-[420px] rounded-2xl overflow-hidden border border-slate-200" />
           </div>
         )}
 
