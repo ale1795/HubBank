@@ -131,6 +131,11 @@ export const state = {
   // session back to state.customer.customer_id (or a pending onboarding applicant).
   diditSessions: {},
   processedWebhookEventIds: new Set(),
+  // New accounts opened through the onboarding flow, keyed by the same
+  // vendor_data (email) used for their Didit session — completely separate
+  // from `customer`/`accounts`/`cards` above, which stay the single existing
+  // demo customer everything else in the app (Nito, the mobile screens) reads.
+  onboardedApplicants: {},
   auditLogs: [
     {
       id: "AUD-001",
@@ -147,6 +152,65 @@ export const state = {
     }
   ]
 };
+
+let onboardingSeq = 0;
+
+// Generates a MOCK debit card — a random last-4 and a made-up expiry, nothing
+// more. This is NOT tokenization: there is no card processor/issuer behind
+// it, no PAN, no real token vault. It exists purely so the onboarding demo
+// has something card-shaped to show; wiring a real tokenized card requires
+// integrating an actual issuer/processor (e.g. Marqeta, Galileo, the bank's
+// own card switch), which this prototype does not have.
+function issueMockCard(holderName) {
+  const last4 = String(Math.floor(1000 + Math.random() * 9000));
+  const expiryYear = new Date().getFullYear() + 4;
+  return {
+    card_id: `CARD-NEW-${last4}`,
+    card_holder: holderName.toUpperCase(),
+    card_type: 'DEBIT',
+    card_name: 'Tarjeta de Débito Mastercard',
+    last4,
+    expiry: `${String(new Date().getMonth() + 1).padStart(2, '0')}/${String(expiryYear).slice(-2)}`,
+    status: 'ACTIVE',
+    brand: 'MASTERCARD',
+    tokenized: false // honest flag — see comment above
+  };
+}
+
+// Creates the new customer + a starter account + a mock card once Didit
+// approves an onboarding applicant. Idempotent on vendor_data so a retried/
+// duplicate webhook delivery doesn't mint a second account.
+export function createOnboardedApplicant({ vendorData, firstName, lastName }) {
+  const existing = state.onboardedApplicants[vendorData];
+  if (existing) return existing;
+
+  onboardingSeq += 1;
+  const customerId = `CUS-NEW-${String(onboardingSeq).padStart(3, '0')}`;
+  const holderName = `${firstName || ''} ${lastName || ''}`.trim() || 'Cliente Nuevo';
+
+  const applicant = {
+    customer_id: customerId,
+    first_name: firstName || '',
+    last_name: lastName || '',
+    email: vendorData,
+    identity_verified: true,
+    created_at: new Date().toISOString(),
+    account: {
+      account_id: `ACC-NEW-${String(onboardingSeq).padStart(3, '0')}`,
+      name: 'Cuenta de Ahorro a la Vista',
+      account_number_masked: `**** **** **** ${String(1000 + onboardingSeq).slice(-4)}`,
+      type: 'Ahorro',
+      balance: 0,
+      available_balance: 0,
+      currency: 'USD',
+      status: 'ACTIVE'
+    },
+    card: issueMockCard(holderName)
+  };
+
+  state.onboardedApplicants[vendorData] = applicant;
+  return applicant;
+}
 
 export function logAudit(entry) {
   const now = new Date();

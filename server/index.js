@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { state, logAudit } from './state.js';
+import { state, logAudit, createOnboardedApplicant } from './state.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -416,7 +416,7 @@ app.post('/api/verify/session', async (req, res) => {
     return res.status(500).json({ error: 'DIDIT_API_KEY is not configured on the server' });
   }
 
-  const { vendor_data, callback } = req.body || {};
+  const { vendor_data, callback, metadata } = req.body || {};
   const vendorData = vendor_data || state.customer.customer_id;
 
   try {
@@ -429,7 +429,11 @@ app.post('/api/verify/session', async (req, res) => {
       body: JSON.stringify({
         workflow_id: DIDIT_WORKFLOW_ID,
         vendor_data: vendorData,
-        callback: callback || 'http://localhost:5173/'
+        callback: callback || 'http://localhost:5173/',
+        // Echoed back verbatim on every webhook for this session — carries
+        // the applicant's name through to createOnboardedApplicant() below,
+        // since vendor_data itself only has room for their email.
+        ...(metadata ? { metadata } : {})
       })
     });
 
@@ -473,6 +477,14 @@ app.get('/api/verify/session/:id', (req, res) => {
   const session = state.diditSessions[req.params.id];
   if (!session) return res.status(404).json({ error: 'session not found' });
   res.json(session);
+});
+
+// 15b. Read back the account + mock card the webhook provisioned for an
+// onboarding applicant (keyed by the same email used as vendor_data).
+app.get('/api/onboarding/applicant/:email', (req, res) => {
+  const applicant = state.onboardedApplicants[req.params.email.toLowerCase()];
+  if (!applicant) return res.status(404).json({ error: 'applicant not found' });
+  res.json(applicant);
 });
 
 // 16. Didit webhook — verifies X-Signature-V2 (HMAC-SHA256) before trusting anything.
@@ -581,9 +593,30 @@ app.post('/api/webhooks/didit', express.raw({ type: '*/*', limit: '2mb' }), (req
     case 'user.status.updated':
     case 'user.data.updated':
       if (event.vendor_data === state.customer.customer_id) {
+        // The existing demo customer (Guillermo) — used by the block_card/
+        // report_fraud step-up check, not the onboarding flow.
         state.customer.identity_verification_status = event.status;
         if (event.status === 'Approved') state.customer.identity_verified = true;
         if (event.status === 'Declined' || isKycExpired) state.customer.identity_verified = false;
+      } else if (event.status === 'Approved' && event.vendor_data) {
+        // Anyone else approved is a new onboarding applicant (vendor_data is
+        // their email) — provision the account + mock card now that Didit
+        // has confirmed their identity.
+        const applicant = createOnboardedApplicant({
+          vendorData: event.vendor_data,
+          firstName: event.metadata?.first_name,
+          lastName: event.metadata?.last_name
+        });
+        logAudit({
+          customer_id: applicant.customer_id,
+          agent_id: 'NITO-SECURITY',
+          agent_title: 'Nito Identity Verification',
+          intent: 'ONBOARDING',
+          action: 'CREATE_ACCOUNT',
+          tool_called: 'didit_webhook',
+          result: 'SUCCESS',
+          details: `Cuenta ${applicant.account.account_id} y tarjeta ****${applicant.card.last4} creadas para ${applicant.email} tras aprobación de identidad.`
+        });
       }
       break;
     case 'business.status.updated':

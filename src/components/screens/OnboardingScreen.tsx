@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { VisionarioLogo } from '../common/VisionarioLogo';
-import { createDiditSession, startDiditVerification, getDiditSessionStatus } from '../../services/diditEngine';
-import { User, Mail, ArrowRight, ShieldCheck, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import {
+  createDiditSession,
+  startDiditVerification,
+  getDiditSessionStatus,
+  getOnboardedApplicant,
+  OnboardedApplicant
+} from '../../services/diditEngine';
+import { User, Mail, ArrowRight, ShieldCheck, Loader2, CheckCircle2, XCircle, CreditCard, Wallet } from 'lucide-react';
 
 interface OnboardingScreenProps {
   onBackToLogin: () => void;
@@ -17,6 +23,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
   const [email, setEmail] = useState('');
   const [verification, setVerification] = useState<VerificationState>('idle');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [applicant, setApplicant] = useState<OnboardedApplicant | null>(null);
   const startedRef = useRef(false);
 
   const canVerify = firstName.trim() && lastName.trim() && email.trim();
@@ -28,10 +35,16 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
     startedRef.current = true;
 
     (async () => {
+      const normalizedEmail = email.trim().toLowerCase();
       try {
         // A prospective applicant has no customer_id yet — the email is the
         // vendor_data Didit (and our own backend) will link the session to.
-        const session = await createDiditSession(email.trim().toLowerCase());
+        // Name goes as metadata: Didit echoes it back on the webhook, which is
+        // the only place the backend can read it to provision the account.
+        const session = await createDiditSession(normalizedEmail, {
+          first_name: firstName.trim(),
+          last_name: lastName.trim()
+        });
         setSessionId(session.session_id);
         const outcome = await startDiditVerification(session.url, DIDIT_EMBED_CONTAINER_ID);
 
@@ -41,12 +54,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
         }
 
         // The SDK's "completed" only means the user finished the hosted flow —
-        // the real decision arrives later via the (webhook-only) backend. Poll
-        // briefly for it; if it hasn't landed yet (expected on localhost, since
-        // Didit can't deliver webhooks there), fall back to a pending state.
+        // the real decision (and the account/card the backend provisions on
+        // approval) arrives later via the webhook-only backend. Poll briefly
+        // for it; if it hasn't landed yet (expected on localhost, since Didit
+        // can't deliver webhooks there), fall back to a pending state.
         for (let attempt = 0; attempt < 3; attempt++) {
           const status = await getDiditSessionStatus(session.session_id).catch(() => null);
           if (status?.status === 'Approved') {
+            setApplicant(await getOnboardedApplicant(normalizedEmail));
             setVerification('completed');
             return;
           }
@@ -61,7 +76,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
         setVerification('error');
       }
     })();
-  }, [verification, email]);
+  }, [verification, email, firstName, lastName]);
 
   const handleVerify = () => {
     if (!canVerify) return;
@@ -160,9 +175,44 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToLogi
         )}
 
         {verification === 'completed' && (
-          <div className="w-full max-w-xs py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium text-xs flex items-center justify-center gap-2">
-            <CheckCircle2 size={14} />
-            <span>Verificación enviada. Te avisaremos cuando esté lista.</span>
+          <div className="w-full max-w-xs space-y-3">
+            <div className="py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium text-xs flex items-center justify-center gap-2 text-center">
+              <CheckCircle2 size={14} className="shrink-0" />
+              <span>
+                {applicant
+                  ? '¡Identidad verificada! Tu cuenta ya está lista.'
+                  : 'Verificación enviada. Te avisaremos cuando esté lista.'}
+              </span>
+            </div>
+
+            {applicant && (
+              <div className="rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden text-xs">
+                <div className="p-3 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#425E5A]/10 text-[#425E5A] flex items-center justify-center shrink-0">
+                    <Wallet size={15} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800">{applicant.account.name}</p>
+                    <p className="text-slate-400 font-mono">{applicant.account.account_number_masked}</p>
+                  </div>
+                </div>
+                <div className="p-3 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#425E5A]/10 text-[#425E5A] flex items-center justify-center shrink-0">
+                    <CreditCard size={15} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800">{applicant.card.card_name}</p>
+                    <p className="text-slate-400 font-mono">**** {applicant.card.last4} · vence {applicant.card.expiry}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {applicant && (
+              <p className="text-center text-[10px] text-slate-400">
+                Tarjeta simulada — no está tokenizada con un procesador real.
+              </p>
+            )}
           </div>
         )}
 

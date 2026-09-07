@@ -10,11 +10,14 @@ export interface DiditSession {
   session_id: string;
 }
 
-export async function createDiditSession(vendorData: string): Promise<DiditSession> {
+export async function createDiditSession(
+  vendorData: string,
+  metadata?: Record<string, string>
+): Promise<DiditSession> {
   const res = await fetch(`${API_BASE}/verify/session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vendor_data: vendorData, callback: window.location.href })
+    body: JSON.stringify({ vendor_data: vendorData, callback: window.location.href, metadata })
   });
   if (!res.ok) throw new Error('No se pudo crear la sesión de verificación');
   return res.json();
@@ -29,6 +32,24 @@ export interface DiditSessionStatus {
 export async function getDiditSessionStatus(sessionId: string): Promise<DiditSessionStatus> {
   const res = await fetch(`${API_BASE}/verify/session/${sessionId}`);
   if (!res.ok) throw new Error('Sesión de verificación no encontrada');
+  return res.json();
+}
+
+// The account + mock card the backend provisions once Didit approves an
+// onboarding applicant. See server/state.js#createOnboardedApplicant — the
+// card is NOT tokenized, there's no real card processor behind this demo.
+export interface OnboardedApplicant {
+  customer_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  account: { account_id: string; name: string; account_number_masked: string };
+  card: { card_id: string; last4: string; expiry: string; brand: string; card_name: string };
+}
+
+export async function getOnboardedApplicant(email: string): Promise<OnboardedApplicant | null> {
+  const res = await fetch(`${API_BASE}/onboarding/applicant/${encodeURIComponent(email.toLowerCase())}`);
+  if (!res.ok) return null;
   return res.json();
 }
 
