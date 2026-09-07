@@ -23,10 +23,18 @@ const DIDIT_WEBHOOK_SECRET = process.env.DIDIT_WEBHOOK_SECRET;
 const DIDIT_WORKFLOW_ID = 'eff51b8f-c404-485c-b61b-279b7bd1b22f';
 
 app.use(cors());
-app.use(express.json());
+// The webhook route needs its untouched raw body for signature verification —
+// skip the global JSON parser there; it gets its own express.raw() below.
+app.use((req, res, next) => {
+  if (req.path === '/api/webhooks/didit') return next();
+  express.json()(req, res, next);
+});
 
-// Serve static frontend assets from dist folder
-app.use(express.static(path.join(__dirname, '../dist')));
+// Serve static frontend assets from dist folder (local only — see the
+// process.env.VERCEL guard near the bottom of this file for why).
+if (!process.env.VERCEL) {
+  app.use(express.static(path.join(__dirname, '../dist')));
+}
 
 // Middleware for authentication (supports optional Bearer token validation for ElevenLabs)
 const authMiddleware = (req, res, next) => {
@@ -491,47 +499,103 @@ function sortKeys(v) {
   return v;
 }
 
-app.post('/api/webhooks/didit', (req, res) => {
+// IMPORTANT (per Didit's own guidance): HMAC the raw body exactly as received,
+// never a re-`JSON.stringify`-ed copy of an already-parsed `req.body` — a body
+// parser can reorder/reformat values in ways that silently break the hash.
+// express.raw() hands us the untouched bytes; we only JSON.parse them
+// ourselves, after the signature has checked out, purely to dispatch on
+// webhook_type/status.
+app.post('/api/webhooks/didit', express.raw({ type: '*/*', limit: '2mb' }), (req, res) => {
   const sig = req.headers['x-signature-v2'] || '';
   const ts = Number(req.headers['x-timestamp']);
+  const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body || '');
 
   if (!DIDIT_WEBHOOK_SECRET) {
     console.warn('[Didit] webhook received but DIDIT_WEBHOOK_SECRET is not configured — rejecting.');
     return res.status(401).send('webhook not configured');
   }
 
+  // 1. Freshness — reject anything older/newer than 300s (replay protection).
   if (!ts || Math.abs(Date.now() / 1000 - ts) > 300) {
     return res.status(401).send('stale');
   }
 
-  const canonical = JSON.stringify(sortKeys(shortenFloats(req.body)));
+  let parsed;
+  try {
+    parsed = JSON.parse(rawBody);
+  } catch {
+    console.error('[Didit] webhook body is not valid JSON:', rawBody.slice(0, 500));
+    return res.status(400).send('invalid json');
+  }
+
+  // 2/3. Recompute X-Signature-V2 over the canonical form (shortenFloats -> sortKeys
+  // -> JSON.stringify, unescaped Unicode) and compare in constant time.
+  const canonical = JSON.stringify(sortKeys(shortenFloats(parsed)));
   const expected = crypto.createHmac('sha256', DIDIT_WEBHOOK_SECRET).update(canonical, 'utf8').digest('hex');
 
   const sigBuf = Buffer.from(sig);
   const expectedBuf = Buffer.from(expected);
   if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+    console.error('[Didit] webhook signature mismatch. Raw body for debugging:', rawBody.slice(0, 2000));
     return res.status(401).send('bad signature');
   }
 
-  const event = req.body;
+  // 4. Return 2xx immediately after this point no matter what happens below —
+  // Didit only retries on 5xx/404, and downstream bookkeeping here is all
+  // synchronous/in-memory so there's nothing to await.
+  const event = parsed;
+
+  // NOTE: state.processedWebhookEventIds and state.diditSessions are plain
+  // in-memory objects. That's fine for a single long-lived local process, but
+  // on Vercel each serverless invocation may land on a cold instance with none
+  // of this history — idempotency and "identity_verified" here are therefore
+  // best-effort in that deployment, not durable. A real deployment needs a
+  // database (Vercel KV/Postgres/etc.) behind this for that guarantee.
   if (state.processedWebhookEventIds.has(event.event_id)) {
     return res.status(200).send('ok');
   }
   state.processedWebhookEventIds.add(event.event_id);
 
-  const existing = state.diditSessions[event.session_id] || { vendor_data: event.vendor_data };
-  state.diditSessions[event.session_id] = {
-    ...existing,
-    session_id: event.session_id,
-    status: event.status,
-    decision: event.decision,
-    updated_at: new Date().toISOString()
-  };
+  const sessionKey = event.session_id || event.business_session_id;
+  if (sessionKey) {
+    const existing = state.diditSessions[sessionKey] || { vendor_data: event.vendor_data };
+    state.diditSessions[sessionKey] = {
+      ...existing,
+      session_id: sessionKey,
+      session_kind: event.session_kind,
+      status: event.status,
+      decision: event.decision,
+      resubmit_info: event.resubmit_info,
+      updated_at: new Date().toISOString()
+    };
+  }
 
-  if (event.vendor_data === state.customer.customer_id) {
-    state.customer.identity_verification_status = event.status;
-    if (event.status === 'Approved') state.customer.identity_verified = true;
-    if (event.status === 'Declined' || event.status === 'Kyc Expired') state.customer.identity_verified = false;
+  // KYC Expired ships as "Kyc Expired" per Didit's docs, but has also been
+  // observed as "KYC Expired" — compare case-insensitively for this one status
+  // rather than risk silently missing it.
+  const isKycExpired = typeof event.status === 'string' && event.status.toLowerCase() === 'kyc expired';
+
+  switch (event.webhook_type) {
+    case 'status.updated':
+    case 'data.updated':
+    case 'user.status.updated':
+    case 'user.data.updated':
+      if (event.vendor_data === state.customer.customer_id) {
+        state.customer.identity_verification_status = event.status;
+        if (event.status === 'Approved') state.customer.identity_verified = true;
+        if (event.status === 'Declined' || isKycExpired) state.customer.identity_verified = false;
+      }
+      break;
+    case 'business.status.updated':
+    case 'business.data.updated':
+    case 'activity.created':
+    case 'transaction.created':
+    case 'transaction.status.updated':
+      // Not modeled by this mock banking core yet — logged below via the audit
+      // trail so the event is still visible (e.g. in /api/audit/logs).
+      break;
+    default:
+      console.warn('[Didit] unrecognized webhook_type:', event.webhook_type);
   }
 
   logAudit({
@@ -539,24 +603,36 @@ app.post('/api/webhooks/didit', (req, res) => {
     agent_id: 'NITO-SECURITY',
     agent_title: 'Nito Identity Verification',
     intent: 'IDENTITY_VERIFICATION',
-    action: 'WEBHOOK_STATUS_UPDATE',
+    action: 'WEBHOOK_EVENT',
     tool_called: 'didit_webhook',
+    tool_params: { webhook_type: event.webhook_type, session_id: sessionKey },
     result: event.status === 'Approved' ? 'SUCCESS' : event.status === 'Declined' ? 'ERROR' : 'INFO',
-    details: `Sesión ${event.session_id} → ${event.status}`
+    details: `${event.webhook_type || 'evento'} · ${sessionKey || event.vendor_data} → ${event.status || 'n/a'}`
   });
 
   res.status(200).send('ok');
 });
 
-// SPA Fallback
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
+// On Vercel this file only runs as the /api/* serverless function (see
+// api/index.js) — the dist/ build is served separately by Vercel's static
+// hosting, and nothing here should try to bind a port or read dist/ from
+// whatever filesystem the function happens to run in.
+if (!process.env.VERCEL) {
+  // SPA Fallback (local "npm run start" / "npm run server" only)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+  });
 
-app.listen(PORT, () => {
-  console.log(`=========================================`);
-  console.log(`🏦 AI Banking Hub All-in-One Server Running`);
-  console.log(`🚀 App URL: http://localhost:${PORT}`);
-  console.log(`🔐 ElevenLabs Tools Endpoint Base: http://localhost:${PORT}/api`);
-  console.log(`=========================================`);
-});
+  app.listen(PORT, () => {
+    console.log(`=========================================`);
+    console.log(`🏦 AI Banking Hub All-in-One Server Running`);
+    console.log(`🚀 App URL: http://localhost:${PORT}`);
+    console.log(`🔐 ElevenLabs Tools Endpoint Base: http://localhost:${PORT}/api`);
+    console.log(`=========================================`);
+  });
+} else {
+  // Unmatched /api/* route on Vercel — fail as JSON, not a missing-file crash.
+  app.use((req, res) => res.status(404).json({ error: 'not_found' }));
+}
+
+export default app;
