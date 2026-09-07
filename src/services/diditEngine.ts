@@ -34,8 +34,13 @@ export async function getDiditSessionStatus(sessionId: string): Promise<DiditSes
 
 export type DiditFlowOutcome = 'completed' | 'cancelled' | 'failed';
 
-// Opens the Didit-hosted modal for the given session URL and resolves once the
+// Opens the Didit-hosted flow for the given session URL and resolves once the
 // end user finishes, cancels, or the flow errors out.
+//
+// Pass `embeddedContainerId` (the id of an element already in the DOM) to
+// render the flow inline inside your own layout instead of a floating modal —
+// the page never navigates away either way, but embedded mode reads as part
+// of the page rather than a popup on top of it. Omit it for the modal.
 //
 // IMPORTANT: per Didit's own guidance, this "completed" outcome is NOT proof of
 // approval — it only means the user finished the hosted flow. The verified
@@ -43,9 +48,16 @@ export type DiditFlowOutcome = 'completed' | 'cancelled' | 'failed';
 // Declined / In Review), and it can only reach a backend with a public HTTPS
 // URL (Didit's SSRF guard refuses localhost). Callers running against a local
 // dev server should treat "completed" as a soft, non-authoritative signal.
-export function startDiditVerification(url: string): Promise<DiditFlowOutcome> {
+export function startDiditVerification(url: string, embeddedContainerId?: string): Promise<DiditFlowOutcome> {
   return new Promise((resolve) => {
     DiditSdk.shared.onComplete = (result) => resolve(result.type);
-    DiditSdk.shared.startVerification({ url }).catch(() => resolve('failed'));
+    DiditSdk.shared
+      .startVerification({
+        url,
+        configuration: embeddedContainerId
+          ? { embedded: true, embeddedContainerId, showCloseButton: false }
+          : undefined
+      })
+      .catch(() => resolve('failed'));
   });
 }

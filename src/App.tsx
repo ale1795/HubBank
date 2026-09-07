@@ -27,13 +27,34 @@ const BankingAppInner: React.FC = () => {
   const [isMainScrolling, setIsMainScrolling] = useState<boolean>(false);
   const scrollIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Every in-app screen change pushes a history entry, so the mobile/browser
+  // back gesture moves between HubBank's own screens instead of leaving the
+  // app entirely. navigate() is the only thing that should ever change tabs;
+  // the popstate listener below applies a back/forward navigation without
+  // pushing a new entry for it.
+  const navigate = (tab: ScreenTab) => {
+    if (tab === activeTab) return;
+    window.history.pushState({ tab }, '', '');
+    setActiveTab(tab);
+  };
+
+  useEffect(() => {
+    window.history.replaceState({ tab: 'home' }, '', '');
+    const onPopState = (e: PopStateEvent) => {
+      setActiveTab((e.state?.tab as ScreenTab) || 'home');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   // The live agent's tool calls (verify_transaction, report_fraud, block_card)
   // request navigation through context; apply it here and clear the request.
   useEffect(() => {
     if (navigateToTab) {
-      setActiveTab(navigateToTab);
+      navigate(navigateToTab);
       setNavigateToTab(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigateToTab, setNavigateToTab]);
 
   const handleMainScroll = () => {
@@ -46,7 +67,7 @@ const BankingAppInner: React.FC = () => {
   if (activeTab === 'splash') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#071411] via-[#102b26] to-[#1c3934] sm:py-8 sm:px-4 flex items-center justify-center font-sans antialiased">
-        <SplashScreen onEnter={() => setActiveTab('login')} />
+        <SplashScreen onEnter={() => navigate('login')} />
       </div>
     );
   }
@@ -55,8 +76,8 @@ const BankingAppInner: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#071411] via-[#102b26] to-[#1c3934] sm:py-8 sm:px-4 flex items-center justify-center font-sans antialiased">
         <LoginScreen
-          onLoginSuccess={() => setActiveTab('home')}
-          onCreateAccount={() => setActiveTab('onboarding')}
+          onLoginSuccess={() => navigate('home')}
+          onCreateAccount={() => navigate('onboarding')}
         />
       </div>
     );
@@ -65,7 +86,7 @@ const BankingAppInner: React.FC = () => {
   if (activeTab === 'onboarding') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#071411] via-[#102b26] to-[#1c3934] sm:py-8 sm:px-4 flex items-center justify-center font-sans antialiased">
-        <OnboardingScreen onBackToLogin={() => setActiveTab('login')} />
+        <OnboardingScreen onBackToLogin={() => navigate('login')} />
       </div>
     );
   }
@@ -79,12 +100,12 @@ const BankingAppInner: React.FC = () => {
       case 'cards':
         return <CardsScreen highlightedTxId={highlightedTxId} />;
       case 'more':
-        return <MoreScreen onLogout={() => setActiveTab('login')} />;
+        return <MoreScreen onLogout={() => navigate('login')} />;
       case 'home':
       default:
         return (
           <HomeScreen
-            onNavigate={(tab) => setActiveTab(tab)}
+            onNavigate={(tab) => navigate(tab)}
             highlightedTxId={highlightedTxId}
             isConsultingTx={isConsultingTx}
           />
@@ -115,7 +136,7 @@ const BankingAppInner: React.FC = () => {
           activeTab={activeTab}
           onTabChange={(tab) => {
             setHighlightedTxId(null);
-            setActiveTab(tab);
+            navigate(tab);
           }}
         />
 

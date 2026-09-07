@@ -155,7 +155,7 @@ export const AtenaPanel: React.FC<AtenaPanelProps> = ({ isMainScrolling = false 
           </div>
 
           {/* Messages Feed */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5 text-xs">
             {chatMessages.map((msg) => {
               const isUser = msg.sender === 'USER';
               return (
