@@ -223,22 +223,19 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Step-up identity check gating high-risk fraud actions (block_card, report_fraud).
   // Opens Didit's own hosted-flow modal and resolves once the user finishes it.
+  // No chat bubbles here on purpose — the Didit modal is the UI for this step;
+  // the caller (block_card/report_fraud) already posts a single chat message
+  // if this returns false, so the customer isn't shown two notices for one step.
+  //
   // The SDK's completion event is NOT proof of approval — only the (currently
   // unreachable-from-localhost) verified webhook is authoritative — so this is a
   // soft, demo-scoped gate, not a compliance guarantee. See services/diditEngine.ts.
-  const requireIdentityVerification = async (reason: string): Promise<boolean> => {
-    pushLiveToolCallMessage('FRAUD_AGENT', 'identity_verification', `Verificación de identidad requerida: ${reason}`);
+  const requireIdentityVerification = async (): Promise<boolean> => {
     try {
       const session = await createDiditSession(liveStateRef.current.customer.customer_id);
       const outcome = await startDiditVerification(session.url);
-      if (outcome === 'completed') {
-        pushLiveToolCallMessage('FRAUD_AGENT', 'identity_verification', 'Identidad verificada');
-        return true;
-      }
-      pushLiveToolCallMessage('FRAUD_AGENT', 'identity_verification', 'Verificación cancelada o incompleta', 'error');
-      return false;
+      return outcome === 'completed';
     } catch {
-      pushLiveToolCallMessage('FRAUD_AGENT', 'identity_verification', 'No se pudo iniciar la verificación', 'error');
       return false;
     }
   };
@@ -328,7 +325,7 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
         pushLiveToolCallMessage('FRAUD_AGENT', 'report_fraud', 'Bloqueado: falta confirmación explícita del cliente', 'error');
         return 'ERROR: no se puede radicar el reclamo sin confirmación explícita del cliente. Pide primero que confirme.';
       }
-      const identityOk = await requireIdentityVerification('Radicar reclamo de fraude');
+      const identityOk = await requireIdentityVerification();
       if (!identityOk) {
         pushLiveToolCallMessage('FRAUD_AGENT', 'report_fraud', 'Bloqueado: verificación de identidad no completada', 'error');
         return 'ERROR: no se pudo verificar la identidad del cliente. No se radicó el reclamo.';
@@ -393,7 +390,7 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
         pushLiveToolCallMessage('FRAUD_AGENT', 'block_card', 'Bloqueado: falta confirmación explícita del cliente', 'error');
         return 'ERROR: no se puede bloquear la tarjeta sin confirmación explícita del cliente. Pide primero que confirme.';
       }
-      const identityOk = await requireIdentityVerification('Bloqueo de tarjeta');
+      const identityOk = await requireIdentityVerification();
       if (!identityOk) {
         pushLiveToolCallMessage('FRAUD_AGENT', 'block_card', 'Bloqueado: verificación de identidad no completada', 'error');
         return 'ERROR: no se pudo verificar la identidad del cliente. No se bloqueó la tarjeta.';

@@ -78,12 +78,19 @@ ever forcing them to navigate menus, so that:
       Centro. ¿Es esa la que no reconoces?"
    5. On confirmation ("Sí"), call `verify_transaction`.
    6. Ask if they want to report it: "¿Quieres reportarla?"
-   7. On confirmation, call `report_fraud` to open a case (e.g. Case FRA-20260905-00421).
+   7. On confirmation, tell them why the next step is coming before calling anything: "Para
+      radicar el reclamo necesito verificar tu identidad primero — revisa tu pantalla." Then
+      call `report_fraud` to open a case (e.g. Case FRA-20260905-00421).
    8. Offer preventive security: "Por seguridad, puedo bloquear temporalmente tu tarjeta
       terminada en 4829. ¿Deseas bloquearla?"
-   9. Call `block_card` only after explicit confirmation.
+   9. On confirmation, say "Voy a pedirte que verifiques tu identidad de nuevo antes de
+      bloquearla" and only then call `block_card`.
    10. Confirm resolution: "Listo. Tu tarjeta quedó bloqueada temporalmente y tu caso fue
        registrado en la Unidad de Prevención de Fraude."
+   11. If either tool returns an identity-verification error, say so plainly ("No pudimos
+       verificar tu identidad, así que no [radiqué el reclamo / bloqueé la tarjeta]") and
+       offer `human_handoff` — never retry silently or ask for the verification a second time
+       in the same turn.
 3. **Transfers** are executed safely:
    1. Identify the source account (e.g. Cuenta Corriente **** 4829).
    2. Identify the destination account (e.g. Cuenta de Ahorro a la Vista **** 7712).
