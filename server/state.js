@@ -84,6 +84,45 @@ export const state = {
       currency: "USD",
       status: "COMPLETED",
       card_last4: "4821"
+    },
+    {
+      id: "TX-005",
+      date: "2026-09-06",
+      time: "22:47",
+      merchant: "Compra en línea desconocida",
+      category: "Comercio Electrónico",
+      type: "PURCHASE",
+      type_label: "Compra",
+      amount: 189.90,
+      currency: "USD",
+      status: "COMPLETED",
+      card_last4: "9012"
+    },
+    {
+      id: "TX-006",
+      date: "2026-09-06",
+      time: "03:12",
+      merchant: "ATM Boulevard",
+      category: "Cajero Automático",
+      type: "ATM_WITHDRAWAL",
+      type_label: "Retiro",
+      amount: 150.00,
+      currency: "USD",
+      status: "COMPLETED",
+      card_last4: "4821"
+    },
+    {
+      id: "TX-007",
+      date: "2026-09-02",
+      time: "12:05",
+      merchant: "Farmacia San Nicolás",
+      category: "Salud",
+      type: "PURCHASE",
+      type_label: "Compra",
+      amount: 24.15,
+      currency: "USD",
+      status: "COMPLETED",
+      card_last4: "4821"
     }
   ],
   cards: [
@@ -107,6 +146,19 @@ export const state = {
       card_name: "Visionario Platinum Debit",
       last4: "9012",
       expiry: "11/28",
+      status: "ACTIVE",
+      brand: "MASTERCARD"
+    },
+    {
+      card_id: "CARD-003",
+      card_holder: "GUILLERMO CALDERON",
+      card_type: "CREDIT",
+      card_name: "Visionario Gold",
+      last4: "5567",
+      expiry: "04/28",
+      limit: 2500.00,
+      available_limit: 1980.00,
+      current_balance: 520.00,
       status: "ACTIVE",
       brand: "MASTERCARD"
     }

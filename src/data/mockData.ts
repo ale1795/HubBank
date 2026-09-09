@@ -143,6 +143,49 @@ export const INITIAL_TRANSACTIONS: BankTransaction[] = [
     status: 'COMPLETED',
     card_last4: '4829',
     location: 'ATM Red Visionario - Centro Histórico'
+  },
+  {
+    id: 'TX-007',
+    date: '02/09/2026',
+    time: '10:47 p.m.',
+    merchant: 'Compra en línea desconocida',
+    detail: 'Tarjeta Black **** 3355',
+    category: 'Comercio Electrónico',
+    type: 'PURCHASE',
+    type_label: 'Compra',
+    amount: -189.90,
+    currency: 'USD',
+    status: 'COMPLETED',
+    card_last4: '3355'
+  },
+  {
+    id: 'TX-008',
+    date: '02/09/2026',
+    time: '3:12 a.m.',
+    merchant: 'ATM Boulevard',
+    detail: 'Retiro cajero automático',
+    category: 'Cajero Automático',
+    type: 'ATM_WITHDRAWAL',
+    type_label: 'Retiro',
+    amount: -150.00,
+    currency: 'USD',
+    status: 'COMPLETED',
+    card_last4: '4829',
+    location: 'ATM Red Visionario - Boulevard'
+  },
+  {
+    id: 'TX-009',
+    date: '01/09/2026',
+    time: '12:05 p.m.',
+    merchant: 'Farmacia San Nicolás',
+    detail: 'Tarjeta de Débito **** 4829',
+    category: 'Salud',
+    type: 'PURCHASE',
+    type_label: 'Compra',
+    amount: -24.15,
+    currency: 'USD',
+    status: 'COMPLETED',
+    card_last4: '4829'
   }
 ];
 
@@ -175,6 +218,21 @@ export const INITIAL_CARDS: BankCard[] = [
     limit_available: 3500.00,
     available_limit: 3500.00,
     total_limit: 5000.00,
+    status: 'ACTIVE'
+  },
+  {
+    card_id: 'CARD-5567',
+    card_holder: 'GUILLERMO CALDERÓN',
+    card_type: 'CREDIT',
+    card_name: 'Tarjeta Gold',
+    last4: '5567',
+    expiry: '04/28',
+    brand: 'MASTERCARD',
+    monthly_spent: 520.00,
+    spent_percentage: 21,
+    limit_available: 1980.00,
+    available_limit: 1980.00,
+    total_limit: 2500.00,
     status: 'ACTIVE'
   }
 ];

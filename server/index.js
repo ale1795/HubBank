@@ -115,7 +115,7 @@ app.get('/api/transactions', (req, res) => {
 // 4. Verify Transaction
 app.post('/api/transactions/:id/verify', (req, res) => {
   const { id } = req.params;
-  const tx = state.transactions.find(t => t.id === id || t.amount === 300 || t.merchant.toLowerCase().includes(id.toLowerCase()));
+  const tx = state.transactions.find(t => t.id === id || t.merchant.toLowerCase().includes(id.toLowerCase()) || String(t.amount) === id);
   
   if (!tx) {
     return res.status(404).json({ error: 'Transaction not found' });
@@ -150,7 +150,7 @@ app.post('/api/fraud/report', (req, res) => {
   const caseNumber = `FRA-20260905-${String(Math.floor(100 + Math.random() * 900))}`;
   
   // Find transaction and mark as disputed/flagged
-  const tx = state.transactions.find(t => t.id === transaction_id || t.amount === 300);
+  const tx = state.transactions.find(t => t.id === transaction_id);
   if (tx) {
     tx.status = 'DISPUTED';
     tx.dispute_case_id = caseNumber;
