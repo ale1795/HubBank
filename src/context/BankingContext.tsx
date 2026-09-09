@@ -56,6 +56,11 @@ interface BankingContextType {
   setNavigateToTab: (tab: ScreenTab | null) => void;
   highlightedTxId: string | null;
   setHighlightedTxId: (id: string | null) => void;
+  // Set when the customer identified a transaction by card ("tarjeta
+  // terminación 4829") — tells CardsScreen which card to select so the
+  // highlighted transaction is actually visible there instead of Home.
+  highlightedCardLast4: string | null;
+  setHighlightedCardLast4: (last4: string | null) => void;
   isConsultingTx: boolean;
 
   // ElevenLabs Config
@@ -108,6 +113,7 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [liveStatus, setLiveStatus] = useState<AtenaLiveStatus>('disconnected');
   const [navigateToTab, setNavigateToTab] = useState<ScreenTab | null>(null);
   const [highlightedTxId, setHighlightedTxId] = useState<string | null>(null);
+  const [highlightedCardLast4, setHighlightedCardLast4] = useState<string | null>(null);
   const [isConsultingTx, setIsConsultingTx] = useState<boolean>(false);
 
   const [elevenLabsConfig, setElevenLabsConfig] = useState<{ apiKey: string; agentId: string; isConnected: boolean }>({
@@ -305,6 +311,7 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
           id: t.id,
           category: t.category,
           type_label: t.type_label,
+          card_last4: t.card_last4,
           recency: i === 0 ? 'más reciente' : `#${i + 1} más reciente`
         }));
         return JSON.stringify({
@@ -318,7 +325,7 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
     },
 
-    verify_transaction: async (params: { query?: string }) => {
+    verify_transaction: async (params: { query?: string; card_last4?: string }) => {
       setActiveAgent('FRAUD_AGENT');
       setIsConsultingTx(true);
       try {
@@ -339,7 +346,16 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
         // spaces — see the comment above buildAtenaClientTools). Highlight by
         // merchant name instead, which the two datasets do share.
         setHighlightedTxId(tx.merchant || null);
-        setNavigateToTab('home');
+        // When the customer identified the transaction by card ("tarjeta
+        // terminación 4829"), show it on the Cards screen for that card
+        // instead of Home.
+        if (params?.card_last4) {
+          setHighlightedCardLast4(params.card_last4);
+          setNavigateToTab('cards');
+        } else {
+          setHighlightedCardLast4(null);
+          setNavigateToTab('home');
+        }
         return JSON.stringify(tx);
       } catch {
         pushLiveToolCallMessage('FRAUD_AGENT', 'verify_transaction', 'Transacción no encontrada', 'error');
@@ -1099,6 +1115,8 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
         setNavigateToTab,
         highlightedTxId,
         setHighlightedTxId,
+        highlightedCardLast4,
+        setHighlightedCardLast4,
         isConsultingTx,
         elevenLabsConfig,
         updateElevenLabsConfig,

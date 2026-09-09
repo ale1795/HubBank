@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useBanking } from '../../context/BankingContext';
 import { 
   Lock, 
@@ -24,13 +24,22 @@ import { useDragScroll } from '../../hooks/useDragScroll';
 
 interface CardsScreenProps {
   highlightedTxId?: string | null;
+  preferredCardLast4?: string | null;
 }
 
-export const CardsScreen: React.FC<CardsScreenProps> = ({ highlightedTxId }) => {
+export const CardsScreen: React.FC<CardsScreenProps> = ({ highlightedTxId, preferredCardLast4 }) => {
   const { cards, confirmCardBlock, transactions } = useBanking();
   const [activeTab, setActiveTab] = useState<'mis' | 'solicitar' | 'beneficios'>('mis');
   const [selectedCardId, setSelectedCardId] = useState(cards[0]?.card_id);
   const cardSwitcher = useDragScroll<HTMLDivElement>();
+
+  // Nito can point the customer at a specific card ("tarjeta terminación
+  // 4829") — switch to it so its highlighted transaction is actually visible.
+  useEffect(() => {
+    if (!preferredCardLast4) return;
+    const match = cards.find(c => c.last4 === preferredCardLast4);
+    if (match) setSelectedCardId(match.card_id);
+  }, [preferredCardLast4, cards]);
 
   const activeCard = cards.find(c => c.card_id === selectedCardId) || cards[0];
   const isBlocked = activeCard.status === 'BLOCKED';

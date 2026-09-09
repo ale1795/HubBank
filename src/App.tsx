@@ -21,6 +21,7 @@ const BankingAppInner: React.FC = () => {
     setNavigateToTab,
     highlightedTxId,
     setHighlightedTxId,
+    highlightedCardLast4,
     isConsultingTx
   } = useBanking();
   // Some mobile browsers suspend (and on return, fully reload) the tab when
@@ -119,7 +120,7 @@ const BankingAppInner: React.FC = () => {
       case 'transfers':
         return <TransfersScreen />;
       case 'cards':
-        return <CardsScreen highlightedTxId={highlightedTxId} />;
+        return <CardsScreen highlightedTxId={highlightedTxId} preferredCardLast4={highlightedCardLast4} />;
       case 'more':
         return <MoreScreen onLogout={() => navigate('login')} />;
       case 'home':
