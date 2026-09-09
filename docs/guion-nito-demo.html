@@ -1,0 +1,454 @@
+<title>Guion Nito</title>
+<meta name="description" content="Guion escena por escena para grabar el flujo de Nito, con los clics que funcionan y los que hay que evitar.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Karla:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f3f1ea;
+    --surface: #ffffff;
+    --surface-2: #eae5d8;
+    --text: #1d2624;
+    --text-muted: #5c6b67;
+    --border: #dcd5c3;
+    --accent: #3f5a56;
+    --accent-strong: #2b403c;
+    --accent-tint: #e4ebe9;
+    --gold: #8a7429;
+    --gold-tint: #f2ecd6;
+    --mono-bg: #ece6d8;
+    --danger: #9c3a33;
+    --danger-bg: #f6e4e1;
+    --danger-border: #e3c4bd;
+    --shadow: 0 1px 2px rgba(29,38,36,0.06), 0 8px 24px rgba(29,38,36,0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121917;
+      --surface: #182120;
+      --surface-2: #1e2926;
+      --text: #eaf1ee;
+      --text-muted: #93a6a1;
+      --border: #2b3634;
+      --accent: #86ab9f;
+      --accent-strong: #a9c9be;
+      --accent-tint: #1d2c29;
+      --gold: #d8c479;
+      --gold-tint: #2a2717;
+      --mono-bg: #1c2523;
+      --danger: #e4948d;
+      --danger-bg: #2c1a18;
+      --danger-border: #4a2723;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121917;
+    --surface: #182120;
+    --surface-2: #1e2926;
+    --text: #eaf1ee;
+    --text-muted: #93a6a1;
+    --border: #2b3634;
+    --accent: #86ab9f;
+    --accent-strong: #a9c9be;
+    --accent-tint: #1d2c29;
+    --gold: #d8c479;
+    --gold-tint: #2a2717;
+    --mono-bg: #1c2523;
+    --danger: #e4948d;
+    --danger-bg: #2c1a18;
+    --danger-border: #4a2723;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.25);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Karla', system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  ::selection { background: var(--gold-tint); }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.doc {
+    padding-bottom: 20px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+  h1 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: clamp(28px, 6vw, 38px);
+    letter-spacing: -0.01em;
+    margin: 6px 0 4px;
+    text-wrap: balance;
+  }
+  .sub { color: var(--text-muted); font-size: 14px; max-width: 60ch; }
+
+  nav.toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  nav.toc a {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-strong);
+    background: var(--accent-tint);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 10px;
+    text-decoration: none;
+  }
+  nav.toc a:hover { border-color: var(--accent); }
+
+  .prep {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 28px;
+    font-size: 13.5px;
+  }
+  .prep h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin: 0 0 8px;
+  }
+  .prep ul { margin: 0; padding-left: 18px; }
+  .prep li { margin-bottom: 4px; }
+
+  .scene {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 20px 22px 22px;
+    margin-bottom: 18px;
+    scroll-margin-top: 16px;
+  }
+  .scene-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .slug {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 15.5px;
+    color: var(--text);
+  }
+  .slug .n {
+    color: var(--gold);
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    margin-right: 8px;
+  }
+  .dur {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .action { font-size: 14px; margin: 0 0 10px; }
+  .action strong { color: var(--accent-strong); }
+
+  .line {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--mono-bg);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    margin: 8px 0;
+    white-space: pre-wrap;
+  }
+  .line .who {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin-bottom: 2px;
+  }
+
+  .steps { margin: 10px 0 0; padding-left: 20px; font-size: 13.5px; }
+  .steps li { margin-bottom: 6px; }
+  .steps li::marker { color: var(--gold); font-family: 'IBM Plex Mono', monospace; }
+
+  label.check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  label.check input {
+    width: 15px; height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .note {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+  .note b { color: var(--accent-strong); }
+
+  section.avoid {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: 12px;
+    padding: 20px 22px 6px;
+    margin-top: 30px;
+  }
+  section.avoid h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--danger);
+    margin: 0 0 4px;
+  }
+  section.avoid > p { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+
+  .avoid-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 18px; }
+  .avoid-card {
+    background: var(--surface);
+    border: 1px solid var(--danger-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .avoid-card h3 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--danger);
+    margin: 0 0 6px;
+  }
+  .avoid-card ul { margin: 0; padding-left: 16px; font-size: 12.5px; }
+  .avoid-card li { margin-bottom: 3px; }
+
+  footer.doc {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 32px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+</style>
+
+<div class="wrap">
+  <header class="doc">
+    <div class="eyebrow"><span class="dot"></span> HubBank &middot; Banco Visionario &middot; ~4&ndash;6 min de metraje</div>
+    <h1>Guion de grabación — Nito</h1>
+    <p class="sub">Escena por escena, con las frases exactas para decirle a Nito y qué botones son reales. Marcá cada escena cuando la tengas grabada.</p>
+    <nav class="toc">
+      <a href="#prep">Prep</a>
+      <a href="#s1">1 Login</a>
+      <a href="#s2">2 Home</a>
+      <a href="#s3">3 Abrir a Nito</a>
+      <a href="#s4">4 Fraude + bloqueo</a>
+      <a href="#s5">5 Tarjetas</a>
+      <a href="#s6">6 Abrir cuenta</a>
+      <a href="#s7">7 Cierre</a>
+      <a href="#avoid">No tocar</a>
+    </nav>
+  </header>
+
+  <div class="prep" id="prep">
+    <h2>Antes de grabar</h2>
+    <ul>
+      <li>Abrí la app y hablá con Nito <strong>una vez fuera de cámara</strong> para que el navegador ya tenga permiso de micrófono — si lo pide en vivo, se corta el ritmo.</li>
+      <li>Si grabás pantalla de escritorio, achicá la ventana al ancho de un celular para que se vea como la app real.</li>
+      <li>La verificación de identidad (Didit) pide foto de frente, reverso y prueba de vida real — dejá esa parte sin cortar, es lo más vistoso del demo.</li>
+      <li>El servidor guarda el estado en memoria: si ya grabaste el reclamo de fraude una vez, la transacción de ATM Centro va a aparecer "en disputa". Usá otra (ATM Boulevard o la compra en línea) o reiniciá el servidor antes de grabar de nuevo.</li>
+    </ul>
+  </div>
+
+  <div class="scene" id="s1">
+    <div class="scene-head">
+      <span class="slug"><span class="n">01</span>INT. LOGIN</span>
+      <span class="dur">~15 s</span>
+    </div>
+    <p class="action">Pantalla de inicio de sesión. El usuario y contraseña ya vienen precargados.</p>
+    <ol class="steps">
+      <li>Click en <strong>Iniciar sesión</strong> (el botón teal principal) — entra directo a Home.</li>
+      <li>Alternativa: <strong>Iniciar sesión con biometría</strong> hace lo mismo, es un atajo de demo.</li>
+    </ol>
+    <label class="check"><input type="checkbox" data-scene="s1"> Escena grabada</label>
+  </div>
+
+  <div class="scene" id="s2">
+    <div class="scene-head">
+      <span class="slug"><span class="n">02</span>INT. HOME</span>
+      <span class="dur">~20 s</span>
+    </div>
+    <p class="action">Mostrar el saldo total y las acciones rápidas.</p>
+    <ol class="steps">
+      <li>Click en el <strong>ojito</strong> junto al saldo — lo oculta y lo muestra.</li>
+      <li>Click en <strong>Ver cuentas</strong> — navega a Cuentas (podés volver con la barra inferior).</li>
+      <li>De las 5 acciones rápidas: <strong>Transferir</strong> y <strong>Pagar tarjeta</strong> navegan de verdad; <strong>Pagar servicios</strong> y <strong>Depositar</strong> abren a Nito con un mensaje ya escrito — buen momento para mostrar que todo pasa por el asistente.</li>
+    </ol>
+    <label class="check"><input type="checkbox" data-scene="s2"> Escena grabada</label>
+  </div>
+
+  <div class="scene" id="s3">
+    <div class="scene-head">
+      <span class="slug"><span class="n">03</span>INT. HOME — SE ABRE NITO</span>
+      <span class="dur">~15 s</span>
+    </div>
+    <p class="action">Click en el avatar/ícono de Nito para abrir el panel.</p>
+    <div class="line"><span class="who">chip o voz</span>"¿Cuánto tengo en ahorros?"</div>
+    <p class="note">Los tres chips de sugerencia funcionan, igual que hablar por el micrófono o escribir en el campo de texto.</p>
+    <label class="check"><input type="checkbox" data-scene="s3"> Escena grabada</label>
+  </div>
+
+  <div class="scene" id="s4">
+    <div class="scene-head">
+      <span class="slug"><span class="n">04</span>ESCENA ESTRELLA — FRAUDE Y BLOQUEO</span>
+      <span class="dur">~2&ndash;3 min</span>
+    </div>
+    <p class="action">El flujo completo: reporte de fraude, verificación de identidad, y bloqueo de tarjeta — todo en una sola llamada.</p>
+    <div class="line"><span class="who">vos</span>"Tengo una transacción que no reconozco."</div>
+    <ol class="steps">
+      <li>Nito consulta los movimientos y empieza a resaltarlos <strong>uno por uno en la pantalla de Home</strong> — no los recita en texto. Decí "no" hasta que llegue al retiro de ATM Centro por $300.</li>
+      <li>Confirmá: "Sí, repórtala."</li>
+      <li>Nito avisa que necesita verificar tu identidad por seguridad — se abre el modal de Didit. Completá documento (frente y reverso) y la prueba de vida <strong>a cámara real</strong>.</li>
+      <li>Nito confirma el caso creado y da el número de referencia.</li>
+      <li>Cuando pregunte si querés bloquear la tarjeta, decí que sí — <strong>no debería pedir verificación de nuevo</strong>, ya se hizo una vez en esta conversación.</li>
+    </ol>
+    <div class="note">Si el celular te muestra <b>"memoria insuficiente"</b> justo después de la foto del reverso, es una limitación del equipo procesando la cámara — cerrá otras apps antes de grabar esta toma.</div>
+    <label class="check"><input type="checkbox" data-scene="s4"> Escena grabada</label>
+  </div>
+
+  <div class="scene" id="s5">
+    <div class="scene-head">
+      <span class="slug"><span class="n">05</span>INT. TARJETAS</span>
+      <span class="dur">~15 s</span>
+    </div>
+    <p class="action">Navegá a Tarjetas (o dejá que Nito te lleve ahí) y mostrá la tarjeta ya bloqueada.</p>
+    <p class="note">También existe un botón manual <b>Bloquear / Desbloquear</b> en esta pantalla, independiente de Nito — útil si querés mostrar el control manual además del de voz.</p>
+    <label class="check"><input type="checkbox" data-scene="s5"> Escena grabada</label>
+  </div>
+
+  <div class="scene" id="s6">
+    <div class="scene-head">
+      <span class="slug"><span class="n">06</span>INT. LOGIN — ABRIR CUENTA NUEVA</span>
+      <span class="dur">~2 min</span>
+    </div>
+    <p class="action">El flujo de apertura de cuenta con verificación embebida.</p>
+    <ol class="steps">
+      <li>Andá a <strong>Más &rarr; Cerrar sesión</strong> (es lo único que funciona en esa pantalla).</li>
+      <li>En Login, click <strong>"¿No tienes cuenta? Ábrela aquí"</strong>.</li>
+      <li>Llená nombre, apellido y correo, click <strong>Verificar identidad</strong>.</li>
+      <li>El flujo de Didit se abre <strong>dentro de la misma pantalla</strong> (no sale del navegador) — completá documento y selfie.</li>
+      <li>Al terminar, se muestra la cuenta y la tarjeta nueva creadas — con el aviso de que es una tarjeta simulada, no tokenizada.</li>
+    </ol>
+    <label class="check"><input type="checkbox" data-scene="s6"> Escena grabada</label>
+  </div>
+
+  <div class="scene" id="s7">
+    <div class="scene-head">
+      <span class="slug"><span class="n">07</span>CIERRE</span>
+      <span class="dur">~10 s</span>
+    </div>
+    <p class="action">Click en <strong>"¿Ya tienes cuenta? Inicia sesión"</strong> para volver al login, o cerrá ahí sobre la pantalla de cuenta creada.</p>
+    <label class="check"><input type="checkbox" data-scene="s7"> Escena grabada</label>
+  </div>
+
+  <section class="avoid" id="avoid">
+    <h2>No tocar en cámara</h2>
+    <p>Se ven clickeables (cursor de mano, subrayado en hover) pero no hacen nada todavía.</p>
+    <div class="avoid-grid">
+      <div class="avoid-card">
+        <h3>Login</h3>
+        <ul>
+          <li>¿Olvidaste tu contraseña?</li>
+          <li>Ubícanos / Ayuda / Seguridad / Contáctanos</li>
+        </ul>
+      </div>
+      <div class="avoid-card">
+        <h3>Home</h3>
+        <ul>
+          <li>"Personalizar" junto a Acciones rápidas</li>
+        </ul>
+      </div>
+      <div class="avoid-card">
+        <h3>Más</h3>
+        <ul>
+          <li>Todas las filas excepto <b>Cerrar sesión</b></li>
+        </ul>
+      </div>
+      <div class="avoid-card">
+        <h3>Cuentas</h3>
+        <ul>
+          <li>Link de garantía de depósitos al final</li>
+        </ul>
+      </div>
+      <div class="avoid-card">
+        <h3>Tarjetas</h3>
+        <ul>
+          <li>"Ver todos &gt;" sobre movimientos</li>
+          <li>Link de activar tarjeta al final</li>
+        </ul>
+      </div>
+      <div class="avoid-card">
+        <h3>Transferencias</h3>
+        <ul>
+          <li>"Ver todas" para elegir otra cuenta destino</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="doc">HubBank — guion interno, no distribuir</footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = 'guion-nito-checks';
+    var boxes = document.querySelectorAll('input[data-scene]');
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+    boxes.forEach(function (b) {
+      var id = b.getAttribute('data-scene');
+      if (saved[id]) b.checked = true;
+      b.addEventListener('change', function () {
+        saved[id] = b.checked;
+        try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      });
+    });
+  })();
+</script>
