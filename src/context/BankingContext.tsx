@@ -295,7 +295,23 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
           details: `Nito consultó ${txs.length} movimientos en vivo.`
         });
         pushLiveToolCallMessage('BANKING_ASSISTANT', 'get_transactions', `${txs.length} movimientos recientes`);
-        return JSON.stringify(txs);
+        // Deliberately withholds merchant/amount. The prompt alone wasn't
+        // enough to stop the agent from narrating transactions straight from
+        // this list instead of calling verify_transaction (the only tool
+        // that highlights one on the customer's screen) — so this response
+        // can't be used to describe a transaction, only to pick which id to
+        // look up next via verify_transaction.
+        const overview = txs.map((t: any, i: number) => ({
+          id: t.id,
+          category: t.category,
+          type_label: t.type_label,
+          recency: i === 0 ? 'más reciente' : `#${i + 1} más reciente`
+        }));
+        return JSON.stringify({
+          count: txs.length,
+          overview,
+          note: 'Este resumen NO incluye comercio ni monto a propósito. Nunca los inventes ni los asumas a partir de la categoría. Para conocer o mencionar el detalle real de una transacción (comercio, monto, fecha) y para que se resalte en la pantalla del cliente, llamá a verify_transaction pasando el id de esta lista como query.'
+        });
       } catch {
         pushLiveToolCallMessage('BANKING_ASSISTANT', 'get_transactions', 'No se pudieron consultar los movimientos', 'error');
         return 'ERROR: no se pudieron obtener los movimientos';
