@@ -227,14 +227,24 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
   // the caller (block_card/report_fraud) already posts a single chat message
   // if this returns false, so the customer isn't shown two notices for one step.
   //
+  // Only asked once per live conversation: a customer who disputes a
+  // transaction and then also blocks the card shouldn't verify twice in the
+  // same call. Reset in startAtenaLive so a new conversation asks again.
+  //
   // The SDK's completion event is NOT proof of approval — only the (currently
   // unreachable-from-localhost) verified webhook is authoritative — so this is a
   // soft, demo-scoped gate, not a compliance guarantee. See services/diditEngine.ts.
+  const identityVerifiedRef = useRef(false);
   const requireIdentityVerification = async (): Promise<boolean> => {
+    if (identityVerifiedRef.current) return true;
     try {
       const session = await createDiditSession(liveStateRef.current.customer.customer_id);
       const outcome = await startDiditVerification(session.url);
-      return outcome === 'completed';
+      if (outcome === 'completed') {
+        identityVerifiedRef.current = true;
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }
@@ -541,6 +551,7 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const startAtenaLive = async (contextType: string = 'general') => {
     if (liveStatus === 'connected' || liveStatus === 'connecting') return;
+    identityVerifiedRef.current = false;
     setLiveStatus('connecting');
     try {
       const c = liveStateRef.current.customer;
