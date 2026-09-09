@@ -318,7 +318,11 @@ export const BankingProvider: React.FC<{ children: ReactNode }> = ({ children })
           details: `Transacción verificada en vivo: ${tx.merchant} por $${Math.abs(Number(tx.amount)).toFixed(2)}`
         });
         pushLiveToolCallMessage('FRAUD_AGENT', 'verify_transaction', `${tx.merchant} · $${Math.abs(Number(tx.amount)).toFixed(2)}`);
-        setHighlightedTxId(tx.transaction_id || null);
+        // The server's transaction_id doesn't correspond to the mobile UI's
+        // own local mock transaction ids (separate datasets, separate id
+        // spaces — see the comment above buildAtenaClientTools). Highlight by
+        // merchant name instead, which the two datasets do share.
+        setHighlightedTxId(tx.merchant || null);
         setNavigateToTab('home');
         return JSON.stringify(tx);
       } catch {

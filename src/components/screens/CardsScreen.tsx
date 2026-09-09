@@ -277,8 +277,16 @@ export const CardsScreen: React.FC<CardsScreenProps> = ({ highlightedTxId }) => 
               Sin movimientos recientes en esta tarjeta.
             </p>
           )}
-          {transactions.filter(tx => tx.card_last4 === activeCard.last4).slice(0, 4).map((tx) => {
-            const isHighlight = highlightedTxId === tx.id || (highlightedTxId === '300' && Math.abs(tx.amount) === 300);
+          {(() => {
+            const cardTx = transactions.filter(tx => tx.card_last4 === activeCard.last4);
+            const highlightIdx = highlightedTxId
+              ? cardTx.findIndex(t => t.merchant.toLowerCase() === highlightedTxId.toLowerCase())
+              : -1;
+            return highlightIdx > 3
+              ? [cardTx[highlightIdx], ...cardTx.filter((_, i) => i !== highlightIdx)].slice(0, 4)
+              : cardTx.slice(0, 4);
+          })().map((tx) => {
+            const isHighlight = !!highlightedTxId && tx.merchant.toLowerCase() === highlightedTxId.toLowerCase();
             const CategoryIcon =
               tx.category === 'Supermercado' ? ShoppingBag :
               tx.category === 'Combustible' ? Fuel :

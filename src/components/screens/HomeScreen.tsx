@@ -250,8 +250,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
 
         <div className="space-y-3 divide-y divide-slate-100">
-          {transactions.slice(0, 4).map((tx) => {
-            const isHighlight = highlightedTxId === tx.id || (highlightedTxId === '300' && Math.abs(tx.amount) === 300);
+          {(() => {
+            // Default to the 4 most recent, but when Nito highlights a
+            // transaction further down the list, bring it into view instead
+            // of leaving it hidden off-screen.
+            const highlightIdx = highlightedTxId
+              ? transactions.findIndex(t => t.merchant.toLowerCase() === highlightedTxId.toLowerCase())
+              : -1;
+            const visible = highlightIdx > 3
+              ? [transactions[highlightIdx], ...transactions.filter((_, i) => i !== highlightIdx)].slice(0, 4)
+              : transactions.slice(0, 4);
+            return visible;
+          })().map((tx) => {
+            const isHighlight = !!highlightedTxId && tx.merchant.toLowerCase() === highlightedTxId.toLowerCase();
             const isPositive = tx.amount > 0;
 
             return (
